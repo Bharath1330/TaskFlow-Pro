@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="{{ 'dark' if current_user.dark_mode else 'light' }}">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Dashboard — TaskFlow Pro</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
+<link href="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" rel="preload" as="script"/>
+<link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet"/>
+</head>
+<body>
+
+<!-- ═══ NOTIFICATION BAR ═══ -->
+<div id="notification-bar" class="notification-bar d-none">
+  <span id="notif-text"></span>
+  <button onclick="document.getElementById('notification-bar').classList.add('d-none')" class="notif-close">✕</button>
+</div>
+
+<!-- ═══ SIDEBAR ═══ -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-inner">
+    <!-- Logo -->
+    <div class="sidebar-logo">
+      <div class="logo-mark">✦</div>
+      <span class="logo-text">TaskFlow</span>
+      <span class="logo-pro">PRO</span>
+      <button class="btn-icon ms-auto d-lg-none" onclick="closeSidebar()"><i class="fa fa-times"></i></button>
+    </div>
+
+    <!-- User card -->
+    <div class="user-card">
+      <div class="user-avatar" style="background:{{ current_user.avatar_color }}">{{ current_user.initials }}</div>
+      <div class="user-info">
+        <div class="user-name">{{ current_user.name }}</div>
+        <div class="user-email">{{ current_user.email }}</div>
+      </div>
+    </div>
+
+    <!-- Nav -->
+    <div class="nav-section">
+      <div class="nav-label">Views</div>
+      <button class="nav-item active" data-view="all" onclick="setView('all',this)">
+        <i class="fa fa-list nav-icon"></i>All Tasks<span class="nav-badge" id="nb-all">0</span>
+      </button>
+      <button class="nav-item" data-view="active" onclick="setView('active',this)">
+        <i class="fa fa-clock nav-icon"></i>Active<span class="nav-badge" id="nb-active">0</span>
+      </button>
+      <button class="nav-item" data-view="done" onclick="setView('done',this)">
+        <i class="fa fa-check-circle nav-icon"></i>Completed<span class="nav-badge" id="nb-done">0</span>
+      </button>
+      <button class="nav-item" data-view="overdue" onclick="setView('overdue',this)">
+        <i class="fa fa-fire nav-icon"></i>Overdue<span class="nav-badge danger" id="nb-overdue">0</span>
+      </button>
+      <button class="nav-item" data-view="today" onclick="setView('today',this)">
+        <i class="fa fa-calendar-day nav-icon"></i>Due Today<span class="nav-badge" id="nb-today">0</span>
+      </button>
+      <button class="nav-item" data-view="bin" onclick="setView('bin',this)">
+        <i class="fa fa-trash nav-icon"></i>Recycle Bin<span class="nav-badge danger" id="nb-bin">0</span>
+      </button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label d-flex align-items-center justify-content-between">
+        <span>Categories</span>
+        <button class="btn-icon-sm" onclick="openCategoryModal()" title="New category"><i class="fa fa-plus"></i></button>
+      </div>
+      <div id="sidebar-categories">
+        {% for cat in categories %}
+        <button class="nav-item" data-view="cat_{{ cat.id }}" onclick="setView('cat_{{ cat.id }}',this)">
+          <span class="cat-dot" style="background:{{ cat.color }}"></span>
+          {{ cat.icon }} {{ cat.name }}
+          <span class="nav-badge" id="nb-cat-{{ cat.id }}">0</span>
+        </button>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <button class="footer-btn" onclick="exportTasks('json')"><i class="fa fa-download me-1"></i>Export JSON</button>
+      <button class="footer-btn" onclick="exportTasks('csv')"><i class="fa fa-file-csv me-1"></i>Export CSV</button>
+      <button class="footer-btn" onclick="toggleDarkMode()"><i class="fa fa-moon me-1" id="dm-icon"></i>Dark Mode</button>
+      <a href="{{ url_for('logout') }}" class="footer-btn"><i class="fa fa-sign-out-alt me-1"></i>Logout</a>
+    </div>
+  </div>
+</nav>
+
+<!-- Sidebar backdrop (mobile) -->
+<div class="sidebar-backdrop d-none" id="sidebar-backdrop" onclick="closeSidebar()"></div>
+
+<!-- ═══ MAIN ═══ -->
+<div class="main-wrapper" id="main-wrapper">
+
+  <!-- TOP NAVBAR -->
+  <header class="topbar">
+    <button class="btn-icon d-lg-none" onclick="openSidebar()"><i class="fa fa-bars"></i></button>
+    <div class="topbar-title" id="topbar-title">All Tasks</div>
+    <div class="topbar-actions">
+      <!-- Search -->
+      <div class="search-box d-none d-sm-flex">
+        <i class="fa fa-search search-icon"></i>
+        <input type="text" id="search-input" placeholder="Search tasks…" oninput="debounceLoad()"/>
+      </div>
+      <!-- Sort -->
+      <select class="form-select form-select-sm" id="sort-select" onchange="loadTasks()" style="width:130px">
+        <option value="created">📅 Newest</option>
+        <option value="deadline">⏰ Deadline</option>
+        <option value="priority">🔴 Priority</option>
+        <option value="title">🔤 Title</option>
+        <option value="position">↕ Custom</option>
+      </select>
+      <button class="btn-primary-sm" onclick="openAddModal()"><i class="fa fa-plus me-1"></i>Add Task</button>
+    </div>
+  </header>
+
+  <!-- Mobile search -->
+  <div class="mobile-search d-sm-none px-3 pt-2 pb-1">
+    <div class="search-box w-100">
+      <i class="fa fa-search search-icon"></i>
+      <input type="text" id="search-mobile" placeholder="Search…" oninput="document.getElementById('search-input').value=this.value;debounceLoad()"/>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <main class="main-content">
+
+    <!-- STATS CARDS -->
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card s-total">
+        <div class="stat-icon"><i class="fa fa-list-check"></i></div>
+        <div class="stat-body">
+          <div class="stat-val" id="st-total">{{ stats.total }}</div>
+          <div class="stat-label">Total Tasks</div>
+        </div>
+      </div>
+      <div class="stat-card s-done">
+        <div class="stat-icon"><i class="fa fa-check-circle"></i></div>
+        <div class="stat-body">
+          <div class="stat-val" id="st-done">{{ stats.done }}</div>
+          <div class="stat-label">Completed</div>
+        </div>
+      </div>
+      <div class="stat-card s-progress">
+        <div class="stat-icon"><i class="fa fa-chart-pie"></i></div>
+        <div class="stat-body">
+          <div class="stat-val" id="st-pct">{{ stats.pct }}%</div>
+          <div class="stat-label">Progress</div>
+          <div class="mini-progress-bar"><div class="mini-progress-fill" id="mini-fill" style="width:{{ stats.pct }}%"></div></div>
+        </div>
+      </div>
+      <div class="stat-card s-overdue">
+        <div class="stat-icon"><i class="fa fa-exclamation-triangle"></i></div>
+        <div class="stat-body">
+          <div class="stat-val" id="st-overdue">{{ stats.overdue }}</div>
+          <div class="stat-label">Overdue</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FILTER CHIPS -->
+    <div class="filter-row" id="filter-row">
+      <div class="filter-chips">
+        <button class="f-chip active" data-priority="" onclick="setFilter('',this)">All</button>
+        <button class="f-chip" data-priority="urgent" onclick="setFilter('urgent',this)">🚨 Urgent</button>
+        <button class="f-chip" data-priority="high" onclick="setFilter('high',this)">🔴 High</button>
+        <button class="f-chip" data-priority="medium" onclick="setFilter('medium',this)">🟡 Medium</button>
+        <button class="f-chip" data-priority="low" onclick="setFilter('low',this)">🟢 Low</button>
+      </div>
+      <div class="d-flex gap-2 align-items-center">
+        <button class="btn-ghost-sm" onclick="openAddModal()"><i class="fa fa-plus me-1"></i>New</button>
+        <button class="btn-ghost-sm" id="clear-done-btn" onclick="clearDone()"><i class="fa fa-broom me-1"></i>Clear done</button>
+      </div>
+    </div>
+
+    <!-- PROGRESS BAR (overall) -->
+    <div class="progress-section" id="progress-section">
+      <div class="progress-header">
+        <span>Overall Progress</span>
+        <span id="progress-label">{{ stats.pct }}%</span>
+      </div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-fill" id="progress-fill" style="width:{{ stats.pct }}%"></div>
+      </div>
+    </div>
+
+    <!-- TASK LIST -->
+    <div id="task-list-container">
+      <div class="task-list" id="task-list">
+        <div class="loading-spinner"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ═══ ADD / EDIT TASK MODAL ═══ -->
+<div class="modal fade" id="taskModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content app-modal">
+      <div class="modal-header app-modal-header">
+        <h5 class="modal-title" id="modal-title"><i class="fa fa-plus-circle me-2"></i>New Task</h5>
+        <button type="button" class="btn-close-custom" onclick="closeTaskModal()">✕</button>
+      </div>
+      <div class="modal-body app-modal-body">
+        <input type="hidden" id="edit-task-id"/>
+
+        <!-- Title -->
+        <div class="mb-3">
+          <label class="app-label">Title *</label>
+          <input type="text" class="app-input" id="task-title" placeholder="What needs to be done?"/>
+        </div>
+
+        <!-- Description / Notes -->
+        <div class="mb-3">
+          <label class="app-label"><i class="fa fa-sticky-note me-1"></i>Notes / Description</label>
+          <textarea class="app-input" id="task-desc" rows="3" placeholder="Add notes, context, or details…"></textarea>
+        </div>
+
+        <!-- Row: Priority + Status + Category -->
+        <div class="row g-3 mb-3">
+          <div class="col-12 col-sm-4">
+            <label class="app-label">Priority</label>
+            <select class="app-input" id="task-priority">
+              <option value="urgent">🚨 Urgent</option>
+              <option value="high">🔴 High</option>
+              <option value="medium" selected>🟡 Medium</option>
+              <option value="low">🟢 Low</option>
+            </select>
+          </div>
+          <div class="col-12 col-sm-4">
+            <label class="app-label">Status</label>
+            <select class="app-input" id="task-status">
+              <option value="todo">📝 To Do</option>
+              <option value="in_progress">⏳ In Progress</option>
+              <option value="done">✅ Done</option>
+            </select>
+          </div>
+          <div class="col-12 col-sm-4">
+            <label class="app-label">Category</label>
+            <select class="app-input" id="task-category">
+              <option value="">— No category —</option>
+              {% for cat in categories %}
+              <option value="{{ cat.id }}">{{ cat.icon }} {{ cat.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <!-- Row: Deadline + Notify -->
+        <div class="row g-3 mb-3">
+          <div class="col-12 col-sm-6">
+            <label class="app-label"><i class="fa fa-calendar me-1"></i>Deadline</label>
+            <input type="date" class="app-input" id="task-deadline"/>
+          </div>
+          <div class="col-12 col-sm-6">
+            <label class="app-label"><i class="fa fa-bell me-1"></i>Notify before (minutes)</label>
+            <input type="number" class="app-input" id="task-notify" min="0" max="10080" placeholder="e.g. 60"/>
+          </div>
+        </div>
+
+        <!-- Recurring -->
+        <div class="mb-3">
+          <label class="app-label"><i class="fa fa-repeat me-1"></i>Recurring</label>
+          <div class="recur-btns">
+            <button class="recur-btn active" data-r="" onclick="setRecur('',this)">None</button>
+            <button class="recur-btn" data-r="daily" onclick="setRecur('daily',this)">Daily</button>
+            <button class="recur-btn" data-r="weekly" onclick="setRecur('weekly',this)">Weekly</button>
+            <button class="recur-btn" data-r="monthly" onclick="setRecur('monthly',this)">Monthly</button>
+          </div>
+        </div>
+
+        <!-- Tags -->
+        <div class="mb-3">
+          <label class="app-label"><i class="fa fa-tags me-1"></i>Tags</label>
+          <div class="tag-input-wrap">
+            <input type="text" class="app-input flex-1" id="tag-input" placeholder="Type and press Enter…" onkeydown="addTag(event)"/>
+          </div>
+          <div class="tag-chips" id="tag-chips"></div>
+        </div>
+
+        <!-- Sub-tasks -->
+        <div class="mb-3">
+          <label class="app-label"><i class="fa fa-tasks me-1"></i>Sub-tasks</label>
+          <div class="d-flex gap-2 mb-2">
+            <input type="text" class="app-input flex-1" id="subtask-input" placeholder="Add a sub-task…" onkeydown="addSubtask(event)"/>
+            <button class="btn-ghost-sm" onclick="addSubtask({key:'Enter'})">Add</button>
+          </div>
+          <div id="subtask-list" class="subtask-list-modal"></div>
+        </div>
+
+        <!-- Links -->
+        <div class="mb-3">
+          <label class="app-label"><i class="fa fa-link me-1"></i>Links</label>
+          <div class="d-flex gap-2 mb-2">
+            <input type="url" class="app-input flex-1" id="link-url" placeholder="https://…"/>
+            <input type="text" class="app-input" id="link-label" placeholder="Label" style="width:120px"/>
+            <button class="btn-ghost-sm" onclick="addLink()"><i class="fa fa-plus"></i></button>
+          </div>
+          <div id="links-list"></div>
+        </div>
+
+        <!-- Attachments -->
+        <div class="mb-3" id="attachment-section">
+          <label class="app-label"><i class="fa fa-paperclip me-1"></i>Attachments</label>
+          <div class="drop-zone" id="drop-zone" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleDrop(event)">
+            <i class="fa fa-cloud-upload-alt" style="font-size:24px;color:var(--text-dim)"></i>
+            <div style="font-size:13px;color:var(--text-muted);margin-top:6px">Drag & drop files here, or <label for="file-upload" style="color:var(--accent-2);cursor:pointer;font-weight:600">browse</label></div>
+            <div style="font-size:11px;color:var(--text-dim)">Max 10MB · PNG, JPG, PDF, DOC, TXT, ZIP</div>
+            <input type="file" id="file-upload" multiple style="display:none" onchange="uploadFiles(this.files)"/>
+          </div>
+          <div id="attachments-list" class="mt-2"></div>
+        </div>
+
+      </div>
+      <div class="modal-footer app-modal-footer">
+        <button class="btn-ghost-sm" onclick="closeTaskModal()">Cancel</button>
+        <button class="btn-primary-sm" onclick="saveTask()"><i class="fa fa-save me-1"></i>Save Task</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ CATEGORY MODAL ═══ -->
+<div class="modal fade" id="categoryModal" tabindex="-1">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content app-modal">
+      <div class="modal-header app-modal-header">
+        <h5 class="modal-title">📁 New Category</h5>
+        <button class="btn-close-custom" onclick="bootstrap.Modal.getInstance(document.getElementById('categoryModal')).hide()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="app-label">Name</label>
+          <input type="text" class="app-input" id="cat-name" placeholder="e.g. Study"/>
+        </div>
+        <div class="mb-3">
+          <label class="app-label">Icon</label>
+          <div class="icon-picker" id="icon-picker">
+            <span class="icon-opt selected" onclick="selectIcon(this)">📁</span>
+            <span class="icon-opt" onclick="selectIcon(this)">💼</span>
+            <span class="icon-opt" onclick="selectIcon(this)">🏠</span>
+            <span class="icon-opt" onclick="selectIcon(this)">📚</span>
+            <span class="icon-opt" onclick="selectIcon(this)">💻</span>
+            <span class="icon-opt" onclick="selectIcon(this)">🛒</span>
+            <span class="icon-opt" onclick="selectIcon(this)">🎯</span>
+            <span class="icon-opt" onclick="selectIcon(this)">🚀</span>
+            <span class="icon-opt" onclick="selectIcon(this)">🎨</span>
+            <span class="icon-opt" onclick="selectIcon(this)">💡</span>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="app-label">Color</label>
+          <div class="color-swatches" id="cat-swatches"></div>
+        </div>
+      </div>
+      <div class="modal-footer app-modal-footer">
+        <button class="btn-ghost-sm" onclick="bootstrap.Modal.getInstance(document.getElementById('categoryModal')).hide()">Cancel</button>
+        <button class="btn-primary-sm" onclick="saveCategory()">Create</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ TASK DETAIL DRAWER ═══ -->
+<div class="task-drawer" id="task-drawer">
+  <div class="drawer-header">
+    <span class="drawer-title" id="drawer-title">Task Detail</span>
+    <button class="btn-icon" onclick="closeDrawer()"><i class="fa fa-times"></i></button>
+  </div>
+  <div class="drawer-body" id="drawer-body"></div>
+</div>
+<div class="drawer-backdrop d-none" id="drawer-backdrop" onclick="closeDrawer()"></div>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script src="{{ url_for('static', filename='js/script.js') }}"></script>
+<script>
+// Pass server data to JS
+window.APP = {
+  today: "{{ today }}",
+  darkMode: {{ 'true' if current_user.dark_mode else 'false' }},
+  userName: {{ current_user.name | tojson }},
+};
+</script>
+</body>
+</html>

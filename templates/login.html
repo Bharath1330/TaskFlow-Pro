@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>{% if register %}Create Account{% else %}Sign In{% endif %} — TaskFlow Pro</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
+<link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet"/>
+<style>
+.auth-bg{min-height:100vh;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:1rem;position:relative;overflow:hidden}
+.auth-bg::before{content:'';position:absolute;width:600px;height:600px;background:radial-gradient(circle,rgba(124,106,247,.15),transparent 70%);top:-100px;left:-100px;pointer-events:none}
+.auth-bg::after{content:'';position:absolute;width:400px;height:400px;background:radial-gradient(circle,rgba(167,139,250,.12),transparent 70%);bottom:-50px;right:-50px;pointer-events:none}
+.auth-card{background:var(--surface);border:1px solid var(--border-strong);border-radius:20px;width:100%;max-width:440px;padding:2.5rem;box-shadow:0 20px 60px rgba(0,0,0,.4);position:relative;z-index:1}
+.auth-logo{display:flex;align-items:center;gap:.7rem;justify-content:center;margin-bottom:2rem}
+.auth-logo-mark{width:42px;height:42px;background:linear-gradient(135deg,#7c6af7,#a78bfa);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff;font-weight:700}
+.auth-logo-text{font-size:22px;font-weight:700;letter-spacing:-.5px;color:var(--text)}
+.auth-logo-pro{font-size:10px;background:var(--accent-glow);color:var(--accent-2);padding:2px 7px;border-radius:20px;font-weight:700;letter-spacing:.05em}
+.auth-title{font-size:20px;font-weight:700;color:var(--text);margin-bottom:.3rem;text-align:center}
+.auth-sub{font-size:13px;color:var(--text-muted);text-align:center;margin-bottom:1.8rem}
+.form-label{font-size:12.5px;font-weight:600;color:var(--text-muted);margin-bottom:.4rem}
+.form-control,.form-select{background:var(--surface-2)!important;border:1px solid var(--border-strong)!important;color:var(--text)!important;border-radius:8px!important;padding:.65rem 1rem!important;font-size:13.5px!important;transition:all .15s!important}
+.form-control:focus,.form-select:focus{border-color:var(--accent)!important;box-shadow:0 0 0 3px var(--accent-glow)!important;outline:none!important}
+.form-control::placeholder{color:var(--text-dim)!important}
+.input-group-text{background:var(--surface-3)!important;border:1px solid var(--border-strong)!important;color:var(--text-muted)!important;cursor:pointer}
+.btn-auth{width:100%;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:.75rem;font-size:14px;font-weight:700;transition:all .15s;margin-top:.5rem}
+.btn-auth:hover{background:#6a58e8;transform:translateY(-1px);box-shadow:0 6px 20px var(--accent-glow)}
+.auth-divider{display:flex;align-items:center;gap:1rem;margin:1.5rem 0;color:var(--text-dim);font-size:12px}
+.auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.auth-switch{text-align:center;font-size:13px;color:var(--text-muted);margin-top:1.5rem}
+.auth-switch a{color:var(--accent-2);font-weight:600;text-decoration:none}
+.auth-switch a:hover{text-decoration:underline}
+.feature-pills{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;margin-bottom:1.5rem}
+.feature-pill{background:var(--surface-2);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:11.5px;color:var(--text-muted)}
+.alert{border-radius:8px;font-size:13px;padding:.65rem 1rem}
+</style>
+</head>
+<body>
+<div class="auth-bg">
+  <div class="auth-card">
+
+    <div class="auth-logo">
+      <div class="auth-logo-mark">✦</div>
+      <span class="auth-logo-text">TaskFlow</span>
+      <span class="auth-logo-pro">PRO</span>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in messages %}
+        <div class="alert alert-{{ 'success' if cat == 'success' else 'danger' if cat == 'danger' else 'info' }} mb-3">
+          <i class="fa fa-{{ 'check-circle' if cat == 'success' else 'exclamation-circle' if cat == 'danger' else 'info-circle' }} me-2"></i>{{ msg }}
+        </div>
+      {% endfor %}
+    {% endwith %}
+
+    {% if register %}
+      <div class="auth-title">Create your account</div>
+      <div class="auth-sub">Start managing tasks like a pro</div>
+      <div class="feature-pills">
+        <span class="feature-pill">📋 Task Manager</span>
+        <span class="feature-pill">📁 Categories</span>
+        <span class="feature-pill">📎 Attachments</span>
+        <span class="feature-pill">🔔 Notifications</span>
+      </div>
+      <form method="POST" action="{{ url_for('register') }}" novalidate>
+        <div class="mb-3">
+          <label class="form-label">Full name</label>
+          <input type="text" name="name" class="form-control" placeholder="Your full name" required autocomplete="name"/>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Email address</label>
+          <input type="email" name="email" class="form-control" placeholder="you@example.com" required autocomplete="email"/>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Password</label>
+          <div class="input-group">
+            <input type="password" id="pw1" name="password" class="form-control" placeholder="Min. 6 characters" required/>
+            <span class="input-group-text" onclick="togglePw('pw1')"><i class="fa fa-eye" id="eye1"></i></span>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Confirm password</label>
+          <div class="input-group">
+            <input type="password" id="pw2" name="confirm" class="form-control" placeholder="Repeat password" required/>
+            <span class="input-group-text" onclick="togglePw('pw2')"><i class="fa fa-eye" id="eye2"></i></span>
+          </div>
+        </div>
+        <button type="submit" class="btn-auth"><i class="fa fa-user-plus me-2"></i>Create Account</button>
+      </form>
+      <div class="auth-switch">Already have an account? <a href="{{ url_for('login') }}">Sign in</a></div>
+    {% else %}
+      <div class="auth-title">Welcome back</div>
+      <div class="auth-sub">Sign in to your TaskFlow account</div>
+      <form method="POST" action="{{ url_for('login') }}" novalidate>
+        <div class="mb-3">
+          <label class="form-label">Email address</label>
+          <input type="email" name="email" class="form-control" placeholder="you@example.com" required autocomplete="email"/>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Password</label>
+          <div class="input-group">
+            <input type="password" id="pw1" name="password" class="form-control" placeholder="Your password" required/>
+            <span class="input-group-text" onclick="togglePw('pw1')"><i class="fa fa-eye" id="eye1"></i></span>
+          </div>
+        </div>
+        <div class="mb-3 d-flex align-items-center justify-content-between">
+          <div class="form-check mb-0">
+            <input class="form-check-input" type="checkbox" name="remember" id="remember"/>
+            <label class="form-check-label" for="remember" style="font-size:12.5px;color:var(--text-muted)">Remember me</label>
+          </div>
+        </div>
+        <button type="submit" class="btn-auth"><i class="fa fa-sign-in-alt me-2"></i>Sign In</button>
+      </form>
+      <div class="auth-divider">or</div>
+      <div style="text-align:center;font-size:13px;color:var(--text-muted)">
+        New here? <a href="{{ url_for('register') }}" style="color:var(--accent-2);font-weight:600;text-decoration:none">Create a free account</a>
+      </div>
+
+      <!-- Demo hint -->
+      <div style="margin-top:1.2rem;background:var(--surface-2);border:1px dashed var(--border-strong);border-radius:8px;padding:.75rem 1rem;font-size:12px;color:var(--text-dim);text-align:center">
+        <i class="fa fa-lightbulb me-1" style="color:var(--amber)"></i>
+        No account? <a href="{{ url_for('register') }}" style="color:var(--accent-2);text-decoration:none">Register</a> — it's free and instant.
+      </div>
+    {% endif %}
+
+  </div>
+</div>
+
+<script>
+function togglePw(id) {
+  const inp = document.getElementById(id);
+  const icon = document.getElementById('eye' + id.replace('pw',''));
+  if(inp.type === 'password') { inp.type='text'; icon.classList.replace('fa-eye','fa-eye-slash'); }
+  else { inp.type='password'; icon.classList.replace('fa-eye-slash','fa-eye'); }
+}
+// Apply dark mode by default
+document.documentElement.setAttribute('data-theme','dark');
+</script>
+</body>
+</html>
