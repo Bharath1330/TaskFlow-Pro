@@ -6,14 +6,6 @@ TaskFlow Pro helps users organize their daily work with categories, priorities, 
 
 ---
 
-## 📸 Project Preview
-
-> **Coming Soon**
->
-> Add screenshots or a GIF after deployment.
-
----
-
 ## ✨ Features
 
 ### 👤 User Authentication
